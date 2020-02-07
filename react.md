@@ -1,3 +1,5 @@
+# React总结
+
 ## React函数组件
 
 react一直推荐使用函数组件，这肯定是因为类组件有不足的地方，由于自身react开发经验不是很多，所以只能依靠谷歌了。
@@ -161,3 +163,113 @@ ReactDOM.render(<><Counter1 /><Counter2 /></>, document.getElementById('root'));
 
 3.划分组件时出于什么考虑来选择不同的组件类型？  
 本身应根据组件是纯功能组件还是有状态组件来划分，但是react hook完善之后应该都能用函数组件替代类组件。
+
+
+## 为什么不直接从 jsx 渲染构造 dom 结构，而是要经过 react-dom 的 ReactDom.render()？
+
+- 当我们拿到一个表示 UI 的结构和信息的对象以后，不一定会把元素渲染到浏览器环境上，我们有可能把这个结构渲染到 canvas 上，或者是手机 app 上（ReactNative）。所以这也是为什么要把 react-dom 单独抽离出来的原因。
+
+- 有了这样一个对象，当数据变化，需要更新组件的时候，就可以用高效的算法操作这个javascript对象，而不用直接操作页面上的 DOM，这样可以尽量少的减少浏览器重排，极大地优化性能。
+
+## 在 react 事件中打印 this，this 会是 undefined，为什么？
+
+因为 react 调用所传的事件不是通过对象方法的方式调用的，而是直接通过函数调用，所以事件监听函数内并不能通过 this 获取到实例。  
+如果想在事件函数当中使用当前的实例，需要手动的将实例方法 bind 到当前实例上再传入给 react
+
+## 为什么修改组件的状态要通过 setState 方法，而不能通过 this.state = xxx 的方式来修改？
+
+因为 setState 方法由父类 Component 所提供，当我们调用这个方法的时候，react 会更新组件的状态 state，并重新调用 render 方法。然后再把 render 方法所渲染的最新内容显示到页面上。  
+所以如果我们通过 this.state = xxx 的方式修改了状态，react 没办法知道我们修改了组件状态，它就没有办法更新页面。
+
+## 为什么调用 setState 后，state 里的值没有马上修改？
+
+因为调用 setState 的时候，react 会把这个对象放到一个更新队列里，稍后才会从队列当中把新的状态提取出来合并到 state 当中，然后才触发组件更新。  
+例如：
+
+```javascript
+//假设state.num初始值为0
+clickOnButton () {
+    console.log(this.state.num)//0
+    this.setState({
+        num: this.state.num + 1
+    })
+    console.log(this.state.num)//0
+}
+```
+
+所以为了能够同步执行我们的代码，就引入了 setState 的第二种使用方式————可以接受一个函数作为参数。react 会把上一个 setState 的结果传入这个函数，可以使用该结果进行运算、操作，然后返回一个对象作为更新 state 的对象。  
+例如：
+
+```javascript
+//假设state.num初始值为0
+clickOnButton () {
+    console.log(this.state.num)//0
+    this.setState(() => {
+        return {
+            num: this.state.num + 1
+        }
+    })
+    this.setState((prevState) => {
+        console.log(prevState.num)//1
+    })
+}
+```
+
+一个事件中即使进行了几次 setState，组件实际上也只会重新渲染一次，而不是多次。因为在 react 内部会把 javascript 事件循环中的消息队列的同一个消息中的 setState 都进行合并以后再重新渲染组件。
+
+## 为什么 react 中 onChange 事件和 onInput 事件的触发方式是相同的？
+
+react 有一个概念叫“合成事件”，所以 react 上的 onChange 事件并不是原生 dom 里的 onChange 事件。
+通过 state 来修改状态的组件，也就是受控组件————必须要在组件上使用 onChange 事件来绑定对应的事件，否则会报警告，且无法输入其他任何参数。
+
+## React 组件的挂载和删除过程及方法
+
+- componentWillMount: 组件挂载开始之前，也就是 render 方法之前调用
+- componentDidMount: 组件挂载完成以后，也就是 Dom 元素已经插入页面后调用
+- componentWillUnmount: 组件对应的 Dom 元素从页面中删除之前调用
+
+## React 组件更新阶段的生命周期
+
+- shouldComponentUpdate(nextProps, nextState):你可以通过这个方法控制组件是否重新渲染。如果返回 false 组件就不会重新渲染。（这个生命周期在 React 性能优化上非常有用）
+- componentWillReceiveProps(nextProps): 组件从父组件接收到新的 props 之前调用。
+- componentWillUpdate(): 组件开始重新渲染之前调用。
+- componentDidUpdate(): 组件重新渲染并且把更改变更到真实的 Dom 以后调用。
+
+## 向某个页面传递数据的方式
+
+1. 使用state：在push页面时，加入state
+2. **利用search：把数据填写到地址栏中的？后**
+3. 利用hash：把数据填写到hash后
+4. **params：把数据填写到路径中**
+
+实际上，在书写Route组件的path属性时，可以书写一个`string pattern`。
+如希望匹配news路径下的年月日，
+```javascript
+<Route path="/new/2020/2/4" component={News} />
+// 原则上我们希望新闻后面的年月日是动态传入的,所以我们可以这么写,:后面的作为变量名，表示动态传入
+<Route path="/new/:year/:month/:day" component={News} />
+// 匹配的结果会放入props.match.params中以对象形式保存{year: 2020, month: 2, day: 4}
+// 可以根据正则来限定每个变量,?表示该变量可选，即可写可不写,(\d+)正则匹配数字一个或多个，以此推类
+path="/news/:year?/:month?/:day?"
+path="/news/:year(\d+)/:month(\d+)/:day(\d+)"
+```
+
+## 个人理解高阶组件的作用
+
+类似于装饰者模式，抽离组件公共部分，让各个组件的功能专一，不再关注跟组件本身不相关的事情，放到专门抽离出来的高阶组件中去处理。每个组件在使用前放入高阶组件中加工即可。
+
+## 优先使用FC类型来声明函数组件
+
+FC是FunctionComponent的简写, 这个类型定义了默认的 props(如 children)以及一些静态属性(如 defaultProps)
+```javascript
+import React, { FC } from 'react';
+
+export interface MyComponentProps {
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+export const MyComponent: FC<MyComponentProps> = props => {
+  return <div>hello react</div>;
+};
+```
